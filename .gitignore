@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Django
+*.sqlite3
+*.log
+*.pot
+
+# Virtual environment
+env/
+venv/
+ENV/
+
+# VS Code
+.vscode/
+
+# Pytest cache
+.pytest_cache/
+
+# Django migrations (optional to exclude)
+**/migrations/*.py
+!**/migrations/__init__.py
+
+# Environment variables
+.env
+
+# Node & frontend (if using React/Vue/etc.)
+node_modules/
+dist/
+build/
+*.lock
