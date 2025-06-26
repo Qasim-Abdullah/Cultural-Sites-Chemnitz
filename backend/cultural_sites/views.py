@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth.models import User
-from .models import Note,Location
-from .serializers import NoteSerializer,UserRegisterSerializer,LocationSerializer
+from .models import Location
+from .serializers import UserRegisterSerializer,LocationSerializer
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated,AllowAny
 from rest_framework.response import Response
@@ -73,15 +73,6 @@ class CustomTokenRefreshView(TokenRefreshView):
             return Response({'refreshed':False})
 
 
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_notes(request):
-    user=request.user
-    notes=Note.objects.filter(owner=user)
-    serializer=NoteSerializer(notes,many=True)
-    return Response(serializer.data)
-
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def is_authenticated(request):
@@ -94,7 +85,21 @@ def register(request):
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)
-    return Response(serializer.error)
+    print(serializer.errors)
+    return Response(serializer.errors,status=400)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_logged_in_user(request):
+    user = request.user
+    return Response({
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+    })
 
 @api_view(['POST'])
 def logout(request):
@@ -108,16 +113,6 @@ def logout(request):
     except:
         return Response({'success':False})
 
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def create_note(request):
-    serializer = NoteSerializer(data=request.data)
-    if serializer.is_valid():
-        # ✅ Automatically assign the owner from the logged-in user
-        serializer.save(owner=request.user)
-        return Response(serializer.data, status=201)
-    return Response(serializer.errors, status=400)
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])

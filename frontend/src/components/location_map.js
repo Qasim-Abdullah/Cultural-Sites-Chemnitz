@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { fetch_MAP_Locations } from '../routes/endpoints/api';
-import { MapPin, Search, Utensils, Building2, Trees, Car, Map, Filter, X } from 'lucide-react';
+import { MapPin, Search, Utensils, Building2, Trees, Car, Map, Filter, X, Navigation } from 'lucide-react';
 import LeafletMap from './map';
-
 
 const LocationMapApp = () => {
   const [locations, setLocations] = useState([]);
@@ -14,6 +13,10 @@ const LocationMapApp = () => {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [error, setError] = useState(null);
+  const [showingRoute, setShowingRoute] = useState(false);
+  
+  // Add ref to access LeafletMap methods
+  const mapRef = useRef(null);
 
   // Fetch locations with filters
   const fetchLocations = async (customFilters = {}) => {
@@ -33,7 +36,6 @@ const LocationMapApp = () => {
           filters.type = categoryToUse;
         }
       }
-
 
       // Add search filter
       const searchToUse = customFilters.search || searchQuery;
@@ -162,6 +164,10 @@ const LocationMapApp = () => {
       setLocations(locationsArray);
       setFilteredLocations(locationsArray);
 
+      // Clear route and selection when new data loads
+      setShowingRoute(false);
+      setSelectedLocation(null);
+
     } catch (error) {
       console.error('Error fetching locations:', error);
       console.error('Error details:', error.message, error.stack);
@@ -186,12 +192,16 @@ const LocationMapApp = () => {
   // Handle category filter
   const handleCategoryFilter = (categoryId) => {
     setSelectedCategory(categoryId);
+    setShowingRoute(false);
+    setSelectedLocation(null);
     fetchLocations({ type: categoryId });
   };
 
   // Handle search with debouncing
   useEffect(() => {
     const timeoutId = setTimeout(() => {
+      setShowingRoute(false);
+      setSelectedLocation(null);
       if (searchQuery !== '') {
         fetchLocations({ search: searchQuery });
       } else {
@@ -205,6 +215,8 @@ const LocationMapApp = () => {
   // Handle wheelchair filter
   const handleWheelchairFilter = (value) => {
     setWheelchairFilter(value);
+    setShowingRoute(false);
+    setSelectedLocation(null);
     fetchLocations({ wheelchair: value });
   };
 
@@ -242,7 +254,6 @@ const LocationMapApp = () => {
   };
 
   // Get wheelchair accessibility display
-
   const getWheelchairDisplay = (wheelchair) => {
     switch (wheelchair) {
       case 'yes':
@@ -278,6 +289,31 @@ const LocationMapApp = () => {
       return `Lat: ${coords[1]?.toFixed(4)}, Lng: ${coords[0]?.toFixed(4)}`;
     } else {
       return 'Address not available';
+    }
+  };
+
+  // Handle location click from results list - FIXED
+  const handleLocationClick = (location) => {
+    console.log('Location clicked from results list:', location.name);
+    
+    // Set the selected location
+    setSelectedLocation(location);
+    setShowingRoute(true);
+    
+    // Call the map's route function directly
+    if (mapRef.current && mapRef.current.showRouteToLocation) {
+      mapRef.current.showRouteToLocation(location);
+    }
+  };
+
+  // Handle back to all locations
+  const handleBackToAllLocations = () => {
+    setShowingRoute(false);
+    setSelectedLocation(null);
+    
+    // Clear route in map
+    if (mapRef.current && mapRef.current.clearRoute) {
+      mapRef.current.clearRoute();
     }
   };
 
@@ -335,53 +371,34 @@ const LocationMapApp = () => {
           </div>
         </div>
 
-        {/* Additional Filters 
-       <div className="p-4 border-b border-gray-200">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3"
-          >
-            <Filter className="w-4 h-4" />
-            Filters
-            {showFilters ? <X className="w-3 h-3" /> : null}
-          </button>
-
-          {showFilters && (
-            <div className="space-y-3">
+        {/* Route Status */}
+        {showingRoute && selectedLocation && (
+          <div className="p-4 border-b border-gray-200 bg-blue-50">
+            <div className="flex items-center justify-between">
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">
-                  Wheelchair Accessibility
-                </label>
-                <select
-                  value={wheelchairFilter}
-                  onChange={(e) => handleWheelchairFilter(e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded px-2 py-1"
-                >
-                  <option value="">All</option>
-                  <option value="yes">Accessible</option>
-                  <option value="limited">Limited Access</option>
-                  <option value="no">Not Accessible</option>
-                </select>
+                <p className="text-sm font-medium text-blue-700">Showing route to:</p>
+                <p className="text-xs text-blue-600">{selectedLocation.name}</p>
               </div>
+              <button
+                onClick={handleBackToAllLocations}
+                className="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+              >
+                Back to All
+              </button>
             </div>
-          )}
-        </div>*/}
+          </div>
+        )}
 
-
-         {/*Results List */}
+        {/* Results List */}
         <div className="flex-1 overflow-y-auto p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-gray-700">
-              Results {/* ({safeFilteredLocations.length}) */}
+              Results ({showingRoute ? 1 : safeFilteredLocations.length})
             </h3>
             {loading && (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
             )}
           </div>
-
-
-
-          
 
           {/* Error Display */}
           {error && (
@@ -397,66 +414,114 @@ const LocationMapApp = () => {
           )}
 
           <div className="space-y-2">
-            {safeFilteredLocations.length === 0 && !loading ? (
-              <div className="text-center py-8 text-gray-500">
-                <Map className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                <p>{error ? 'Failed to load locations' : 'No locations found'}</p>
-                <p className="text-sm">
-                  {error ? 'Check your connection and try again' : 'Try adjusting your filters'}
-                </p>
+            {/* Show only selected location when route is active */}
+            {showingRoute && selectedLocation ? (
+              <div
+                key={selectedLocation.id}
+                className="p-3 rounded-lg border bg-blue-50 border-blue-200 shadow-sm"
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`w-3 h-3 rounded-full mt-1 ${getMarkerColor(selectedLocation)}`}></div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-medium text-gray-800 truncate">
+                      {selectedLocation.name || 'Unnamed Location'}
+                    </h4>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {getLocationAddress(selectedLocation)}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      {(() => {
+                        const wheelchairDisplay = getWheelchairDisplay(selectedLocation.wheelchair);
+                        const typeDisplay = getLocationTypeDisplay(selectedLocation);
+                        return (
+                          <>
+                            {wheelchairDisplay && (
+                              <span className={`text-xs px-2 py-0.5 rounded ${wheelchairDisplay.class}`}>
+                                {wheelchairDisplay.text}
+                              </span>
+                            )}
+                            {typeDisplay && (
+                              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                                {typeDisplay}
+                              </span>
+                            )}
+                            <span className="text-xs text-blue-600 flex items-center gap-1">
+                              <Navigation className="w-3 h-3" />
+                              Route active
+                            </span>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : (
-              safeFilteredLocations.map((location) => {
-                const wheelchairDisplay = getWheelchairDisplay(location.wheelchair);
-                const typeDisplay = getLocationTypeDisplay(location);
-                const address = getLocationAddress(location);
+              // Show all locations when no route is active
+              safeFilteredLocations.length === 0 && !loading ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Map className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p>{error ? 'Failed to load locations' : 'No locations found'}</p>
+                  <p className="text-sm">
+                    {error ? 'Check your connection and try again' : 'Try adjusting your filters'}
+                  </p>
+                </div>
+              ) : (
+                safeFilteredLocations.map((location) => {
+                  const wheelchairDisplay = getWheelchairDisplay(location.wheelchair);
+                  const typeDisplay = getLocationTypeDisplay(location);
+                  const address = getLocationAddress(location);
 
-                return (
-                  <div
-                    key={location.id}
-                    onClick={() => setSelectedLocation(location)}
-                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${selectedLocation?.id === location.id
-                      ? 'bg-blue-50 border-blue-200'
-                      : 'bg-white border-gray-200 hover:border-gray-300'
-                      }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={`w-3 h-3 rounded-full mt-1 ${getMarkerColor(location)}`}></div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-gray-800 truncate">
-                          {location.name || 'Unnamed Location'}
-                        </h4>
-                        <p className="text-xs text-gray-600 mt-1">
-                          {address}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          {wheelchairDisplay && (
-                            <span className={`text-xs px-2 py-0.5 rounded ${wheelchairDisplay.class}`}>
-                              {wheelchairDisplay.text}
+                  return (
+                    <div
+                      key={location.id}
+                      onClick={() => handleLocationClick(location)}
+                      className="p-3 rounded-lg border cursor-pointer transition-colors hover:shadow-md bg-white border-gray-200 hover:border-gray-300"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`w-3 h-3 rounded-full mt-1 ${getMarkerColor(location)}`}></div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium text-gray-800 truncate">
+                            {location.name || 'Unnamed Location'}
+                          </h4>
+                          <p className="text-xs text-gray-600 mt-1">
+                            {address}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            {wheelchairDisplay && (
+                              <span className={`text-xs px-2 py-0.5 rounded ${wheelchairDisplay.class}`}>
+                                {wheelchairDisplay.text}
+                              </span>
+                            )}
+                            {typeDisplay && (
+                              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                                {typeDisplay}
+                              </span>
+                            )}
+                            <span className="text-xs text-blue-600 flex items-center gap-1">
+                              <Navigation className="w-3 h-3" />
+                              Click for route
                             </span>
-                          )}
-                          {typeDisplay && (
-                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                              {typeDisplay}
-                            </span>
-                          )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })
+              )
             )}
           </div>
         </div>
       </div>
 
-
       {/* Map Area */}
       <LeafletMap
-        safeFilteredLocations={filteredLocations}
+        ref={mapRef}
+        safeFilteredLocations={showingRoute && selectedLocation ? [selectedLocation] : filteredLocations}
         selectedLocation={selectedLocation}
         setSelectedLocation={setSelectedLocation}
+        showingRoute={showingRoute}
+        setShowingRoute={setShowingRoute}
         getWheelchairDisplay={getWheelchairDisplay}
         getLocationTypeDisplay={getLocationTypeDisplay}
         getLocationAddress={getLocationAddress}

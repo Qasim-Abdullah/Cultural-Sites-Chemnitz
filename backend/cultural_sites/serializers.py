@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Note, Location
+from .models import  Location
 from django.contrib.auth.models import User
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
 
@@ -19,10 +19,6 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
-class NoteSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Note
-        fields = ['id',  'description']
 
 class LocationSerializer(GeoFeatureModelSerializer):
     class Meta:

@@ -3,12 +3,12 @@ import axios from 'axios'
 const BASE_URL = 'http://127.0.0.1:8000/'
 
 const LOGIN_URL = `${BASE_URL}token/`
-const NOTES_URL = `${BASE_URL}notes/`
 const REFRESH_URL = `${BASE_URL}token/refresh/`
 const LOGOUT_URL = `${BASE_URL}logout/`
 const AUTHENTICATED_URL = `${BASE_URL}authenticated/`
 const REGISTER_URL = `${BASE_URL}register/`
 const MAP_LOCATION_URL = `${BASE_URL}locations/`
+const USER_INFO_URL=`${BASE_URL}user-info/`
 
 export const login = async (username, password) => {
     const response = await axios.post(LOGIN_URL,
@@ -18,6 +18,18 @@ export const login = async (username, password) => {
     )
     return response.data.success
 }
+
+export const getUserInfo = async () => {
+    try {
+        const response = await axios.get(USER_INFO_URL, {
+            withCredentials: true
+        });
+        return response.data;
+    } catch (error) {
+        console.error("Failed to fetch user info:", error);
+        return null;
+    }
+};
 
 export const refres_token = async () => {
 
@@ -34,19 +46,7 @@ export const refres_token = async () => {
 
 }
 
-export const get_notes = async () => {
-    try {
-        const response = await axios.get(NOTES_URL,
-            { withCredentials: true }
 
-        )
-        return response.data
-    } catch (error) {
-        return call_refresh(error, axios.get(NOTES_URL, { withCredentials: true }))
-    }
-
-
-}
 
 const call_refresh = async (error, func) => {
     if (error.response && error.response.status === 401) {

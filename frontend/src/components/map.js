@@ -1,6 +1,6 @@
 // components/LeafletMap.js
-import React, { useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import React, { useEffect, useMemo, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -8,7 +8,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-// Fix Leaflet marker icon paths ONCE using useEffect
+// Fix Leaflet marker icon paths ONCE
 const setupLeafletIcons = () => {
   delete L.Icon.Default.prototype._getIconUrl;
   L.Icon.Default.mergeOptions({
@@ -18,17 +18,128 @@ const setupLeafletIcons = () => {
   });
 };
 
-const LeafletMap = ({
+// Custom hook to fit map bounds when route changes
+const FitBounds = ({ bounds }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (bounds && bounds.length > 0) {
+      map.fitBounds(bounds, { padding: [20, 20] });
+    }
+  }, [map, bounds]);
+  
+  return null;
+};
+
+const LeafletMap = forwardRef(({
   safeFilteredLocations = [],
   selectedLocation,
   setSelectedLocation,
+  showingRoute,
+  setShowingRoute,
   getWheelchairDisplay,
   getLocationTypeDisplay,
   getLocationAddress,
-}) => {
+}, ref) => {
+  const [userLocation, setUserLocation] = useState(null);
+  const [routeCoordinates, setRouteCoordinates] = useState([]);
+  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+  const [routeError, setRouteError] = useState(null);
+
+  // Expose methods to parent component via ref
+  useImperativeHandle(ref, () => ({
+    showRouteToLocation: (location) => {
+      console.log('showRouteToLocation called from parent for:', location.name);
+      if (userLocation) {
+        const destinationCoords = getCoordinates(location);
+        if (destinationCoords) {
+          fetchRoute(userLocation, destinationCoords);
+        } else {
+          console.error('Could not get coordinates for location:', location);
+        }
+      } else {
+        console.error('User location not available');
+      }
+    },
+    clearRoute: () => {
+      console.log('clearRoute called from parent');
+      clearRoute();
+    }
+  }));
+
   useEffect(() => {
     setupLeafletIcons();
+    
+    // Get user's current location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation([latitude, longitude]);
+          console.log('User location obtained:', [latitude, longitude]);
+        },
+        (error) => {
+          console.warn('Could not get user location:', error.message);
+          // Use Chemnitz as fallback
+          setUserLocation([50.8278, 12.9214]);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000 // 5 minutes
+        }
+      );
+    } else {
+      console.warn('Geolocation not supported, using Chemnitz as fallback');
+      setUserLocation([50.8278, 12.9214]);
+    }
   }, []);
+
+  // Function to fetch route from OSRM
+  const fetchRoute = async (start, end) => {
+    console.log('Fetching route from', start, 'to', end);
+    setIsLoadingRoute(true);
+    setRouteError(null);
+    
+    try {
+      // Using OSRM (free routing service)
+      const response = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch route');
+      }
+      
+      const data = await response.json();
+      
+      if (data.routes && data.routes.length > 0) {
+        const coordinates = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+        setRouteCoordinates(coordinates);
+        setShowingRoute(true);
+        console.log('Route fetched successfully:', coordinates.length, 'points');
+      } else {
+        throw new Error('No route found');
+      }
+    } catch (error) {
+      console.error('Error fetching route:', error);
+      setRouteError(error.message);
+      // Fallback: draw straight line
+      setRouteCoordinates([start, end]);
+      setShowingRoute(true);
+    } finally {
+      setIsLoadingRoute(false);
+    }
+  };
+
+  // Clear route function
+  const clearRoute = useCallback(() => {
+    console.log('Clearing route');
+    setRouteCoordinates([]);
+    setRouteError(null);
+    setShowingRoute(false);
+    setSelectedLocation(null);
+  }, [setShowingRoute, setSelectedLocation]);
 
   // Enhanced debugging with complete data structure inspection
   useEffect(() => {
@@ -39,7 +150,7 @@ const LeafletMap = ({
       console.log('First location complete structure:', JSON.stringify(safeFilteredLocations[0], null, 2));
       
       // Check the first few locations more thoroughly
-      safeFilteredLocations.slice(0, 5).forEach((loc, index) => {
+      safeFilteredLocations.slice(0, 3).forEach((loc, index) => {
         console.log(`\n--- Location ${index + 1} Analysis ---`);
         console.log('Full object:', loc);
         console.log('All keys:', Object.keys(loc));
@@ -54,15 +165,6 @@ const LeafletMap = ({
           'loc.geometry': loc.geometry,
           'loc.geometry?.coordinates': loc.geometry?.coordinates,
           'loc.location': loc.location,
-          'loc.position': loc.position,
-          'loc.coord': loc.coord,
-          'loc.latlng': loc.latlng,
-          'loc.latLng': loc.latLng,
-          'loc.point': loc.point,
-          'loc.gps': loc.gps,
-          'loc.address?.coordinates': loc.address?.coordinates,
-          'loc.properties': loc.properties,
-          'loc.properties?.coordinates': loc.properties?.coordinates,
         };
         
         Object.entries(coordChecks).forEach(([key, value]) => {
@@ -74,7 +176,7 @@ const LeafletMap = ({
     }
   }, [safeFilteredLocations]);
 
-  // Much more comprehensive coordinate extraction function
+  // Comprehensive coordinate extraction function
   const getCoordinates = (location) => {
     if (!location) return null;
     
@@ -96,17 +198,8 @@ const LeafletMap = ({
     const coordinateAttempts = [
       // GeoJSON coordinates [lng, lat] - swap to [lat, lng]
       () => {
-        if (location.coordinates && Array.isArray(location.coordinates) && location.coordinates.length === 2) {
+        if (location.coordinates && Array.isArray(location.coordinates) && location.coordinates.length >= 2) {
           const [lng, lat] = location.coordinates;
-          return validateAndFormat(lat, lng);
-        }
-        return null;
-      },
-      
-      // GeoJSON coordinates [lat, lng] - already in correct order
-      () => {
-        if (location.coordinates && Array.isArray(location.coordinates) && location.coordinates.length === 2) {
-          const [lat, lng] = location.coordinates;
           return validateAndFormat(lat, lng);
         }
         return null;
@@ -114,7 +207,7 @@ const LeafletMap = ({
       
       // GeoJSON in geometry object
       () => {
-        if (location.geometry?.coordinates && Array.isArray(location.geometry.coordinates) && location.geometry.coordinates.length === 2) {
+        if (location.geometry?.coordinates && Array.isArray(location.geometry.coordinates) && location.geometry.coordinates.length >= 2) {
           const [lng, lat] = location.geometry.coordinates;
           return validateAndFormat(lat, lng);
         }
@@ -166,50 +259,6 @@ const LeafletMap = ({
         }
         return null;
       },
-      
-      // Position object
-      () => {
-        if (location.position) {
-          if (location.position.lat !== undefined && location.position.lng !== undefined) {
-            return validateAndFormat(location.position.lat, location.position.lng);
-          }
-          if (location.position.latitude !== undefined && location.position.longitude !== undefined) {
-            return validateAndFormat(location.position.latitude, location.position.longitude);
-          }
-        }
-        return null;
-      },
-      
-      // String coordinates that need parsing
-      () => {
-        if (typeof location.coordinates === 'string') {
-          try {
-            const parsed = JSON.parse(location.coordinates);
-            if (Array.isArray(parsed) && parsed.length === 2) {
-              const [lng, lat] = parsed;
-              return validateAndFormat(lat, lng);
-            }
-          } catch (e) {
-            // Try comma-separated string
-            const parts = location.coordinates.split(',').map(s => s.trim());
-            if (parts.length === 2) {
-              return validateAndFormat(parts[0], parts[1]);
-            }
-          }
-        }
-        return null;
-      },
-      
-      // Address coordinates
-      () => {
-        if (location.address?.coordinates) {
-          if (Array.isArray(location.address.coordinates) && location.address.coordinates.length === 2) {
-            const [lng, lat] = location.address.coordinates;
-            return validateAndFormat(lat, lng);
-          }
-        }
-        return null;
-      }
     ];
     
     // Try each method until one succeeds
@@ -229,9 +278,9 @@ const LeafletMap = ({
   const defaultCenter = useMemo(() => {
     console.log('Calculating default center...');
     
-    if (!safeFilteredLocations.length) {
-      console.log('No locations, using London default');
-      return [51.505, -0.09]; // London default
+    if (userLocation) {
+      console.log('No locations, using Chemnitz default');
+      return userLocation; // Chemnitz default
     }
     
     const validCoordinates = safeFilteredLocations
@@ -241,8 +290,8 @@ const LeafletMap = ({
     console.log('Valid coordinates found:', validCoordinates.length, 'out of', safeFilteredLocations.length);
     
     if (validCoordinates.length === 0) {
-      console.log('No valid coordinates found, using London default');
-      return [51.505, -0.09];
+      console.log('No valid coordinates found, using Chemnitz default');
+      return [50.8278, 12.9214];
     }
     
     const avgLat = validCoordinates.reduce((sum, [lat]) => sum + lat, 0) / validCoordinates.length;
@@ -252,13 +301,32 @@ const LeafletMap = ({
     return [avgLat, avgLng];
   }, [safeFilteredLocations]);
 
+  // Handle marker click with route calculation - only when not showing route
+  const handleMarkerClick = (location) => {
+    console.log('Marker clicked:', location.name);
+    if (!showingRoute) {
+      setSelectedLocation(location);
+      if (userLocation) {
+        const destinationCoords = getCoordinates(location);
+        if (destinationCoords) {
+          fetchRoute(userLocation, destinationCoords);
+        }
+      }
+    }
+  };
+
   // Create markers with enhanced debugging
   const markers = useMemo(() => {
     console.log('Creating markers...');
     let validMarkersCount = 0;
     let invalidMarkersCount = 0;
     
-    const markerElements = safeFilteredLocations.map((location) => {
+    // Show all locations unless we're in route mode and have a selected location
+    const locationsToShow = showingRoute && selectedLocation 
+      ? [selectedLocation] 
+      : safeFilteredLocations;
+    
+    const markerElements = locationsToShow.map((location) => {
       const position = getCoordinates(location);
       
       if (!position) {
@@ -275,10 +343,7 @@ const LeafletMap = ({
           key={location.id || `marker-${validMarkersCount}`}
           position={position}
           eventHandlers={{
-            click: () => {
-              console.log('Marker clicked:', location.name);
-              setSelectedLocation(location);
-            },
+            click: () => handleMarkerClick(location),
           }}
         >
           <Popup>
@@ -306,6 +371,35 @@ const LeafletMap = ({
                   );
                 })()}
               </div>
+              <div className="mt-2 flex gap-2">
+                {userLocation && !showingRoute && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedLocation(location);
+                      const destinationCoords = getCoordinates(location);
+                      if (destinationCoords) {
+                        fetchRoute(userLocation, destinationCoords);
+                      }
+                    }}
+                    className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                    disabled={isLoadingRoute}
+                  >
+                    {isLoadingRoute ? 'Loading...' : 'Show Route'}
+                  </button>
+                )}
+                {showingRoute && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      clearRoute();
+                    }}
+                    className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+                  >
+                    Clear Route
+                  </button>
+                )}
+              </div>
             </div>
           </Popup>
         </Marker>
@@ -314,27 +408,23 @@ const LeafletMap = ({
     
     console.log(`Markers created: ${validMarkersCount} valid, ${invalidMarkersCount} invalid`);
     return markerElements;
-  }, [safeFilteredLocations, getWheelchairDisplay, getLocationTypeDisplay, getLocationAddress, setSelectedLocation]);
+  }, [safeFilteredLocations, showingRoute, selectedLocation, getWheelchairDisplay, getLocationTypeDisplay, getLocationAddress, userLocation, isLoadingRoute]);
+
+  // Calculate bounds for fitting the map when route is shown
+  const mapBounds = useMemo(() => {
+    if (routeCoordinates.length > 0) {
+      return routeCoordinates;
+    }
+    return null;
+  }, [routeCoordinates]);
 
   return (
     <div className="flex-1 relative z-0">
       {/* Enhanced debug info overlay */}
-      <div className="absolute top-4 left-4 z-[1000] bg-white bg-opacity-95 p-3 rounded shadow text-xs max-w-xs">
-        <div className="font-semibold mb-1">Debug Info:</div>
-        <div>Total locations: {safeFilteredLocations.length}</div>
-        <div>Valid markers: {markers.length}</div>
-        <div>Invalid markers: {safeFilteredLocations.length - markers.length}</div>
-        <div>Center: [{defaultCenter[0].toFixed(4)}, {defaultCenter[1].toFixed(4)}]</div>
-        {safeFilteredLocations.length > 0 && markers.length === 0 && (
-          <div className="text-red-600 mt-2 font-semibold">
-            No markers displayed! Check console for coordinate format.
-          </div>
-        )}
-      </div>
       
       <MapContainer
         center={defaultCenter}
-        zoom={defaultCenter[0] === 51.505 ? 10 : 13} // Zoom out if using default center
+        zoom={defaultCenter[0] === 50.8278 && defaultCenter[1] === 12.9214 ? 14 : 18}
         scrollWheelZoom={true}
         className="w-full h-full"
         style={{ height: '100%', width: '100%' }}
@@ -343,10 +433,50 @@ const LeafletMap = ({
           attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        
+        {/* User location marker */}
+        {userLocation && (
+          <Marker 
+            position={userLocation}
+            icon={L.divIcon({
+              className: 'user-location-marker',
+              html: '<div style="background-color: #dc2626; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 2px #3b82f6;"></div>',
+              iconSize: [16, 16],
+              iconAnchor: [8, 8]
+            })}
+          >
+            <Popup>
+              <div>
+                <h4 className="font-medium text-blue-600">Your Location</h4>
+                <p className="text-xs text-gray-500">
+                  {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
+                </p>
+              </div>
+            </Popup>
+          </Marker>
+        )}
+        
+        {/* Location markers */}
         {markers}
+        
+        {/* Route polyline */}
+        {routeCoordinates.length > 0 && (
+          <Polyline
+            positions={routeCoordinates}
+            color="#3b82f6"
+            weight={6}
+            opacity={1}
+            dashArray={null}
+          />
+        )}
+        
+        {/* Fit bounds when route changes */}
+        <FitBounds bounds={mapBounds} />
       </MapContainer>
     </div>
   );
-};
+});
+
+LeafletMap.displayName = 'LeafletMap';
 
 export default LeafletMap;
