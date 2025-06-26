@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from .models import Note
+from .models import Note, Location
 from django.contrib.auth.models import User
+from rest_framework_gis.serializers import GeoFeatureModelSerializer
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -22,3 +23,9 @@ class NoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Note
         fields = ['id',  'description']
+
+class LocationSerializer(GeoFeatureModelSerializer):
+    class Meta:
+        model = Location
+        geo_field = "geometry"  # required for GeoJSON output
+        fields = "__all__"

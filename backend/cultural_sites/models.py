@@ -11,6 +11,9 @@ class Location(models.Model):
     landuse = models.CharField(max_length=100, blank=True, null=True)
     wikidata = models.CharField(max_length=100, blank=True, null=True)
     geometry = models.PointField()  # requires PostGIS
+    amenity = models.CharField(max_length=100, blank=True, null=True)
+    addr_street = models.CharField(max_length=255, blank=True, null=True)
+    addr_city = models.CharField(max_length=100, blank=True, null=True)
 
     def __str__(self):
         return self.name or self.osm_id

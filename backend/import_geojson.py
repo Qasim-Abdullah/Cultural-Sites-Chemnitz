@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-"""
-Script to load GeoJSON data into PostgreSQL/PostGIS database
-Compatible with Django project settings
-"""
-
 import os
 import sys
 import json
@@ -32,13 +26,6 @@ from django.core.exceptions import ValidationError
 from cultural_sites.models import *  # Adjust based on your actual models
 
 def load_geojson_to_postgres(geojson_file_path, model_class=None):
-    """
-    Load GeoJSON data into PostgreSQL database
-    
-    Args:
-        geojson_file_path (str): Path to the GeoJSON file
-        model_class: Django model class to save data to (optional)
-    """
     
     try:
         # Read GeoJSON file
@@ -90,6 +77,7 @@ def load_geojson_to_postgres(geojson_file_path, model_class=None):
                         'wheelchair': properties.get('wheelchair'),
                         'landuse': properties.get('landuse'),
                         'wikidata': properties.get('wikidata'),
+                        'amenity': properties.get('amenity'),
                     }
                     
                     # Clean the data - truncate strings that are too long
@@ -100,7 +88,7 @@ def load_geojson_to_postgres(geojson_file_path, model_class=None):
                         if instance_data[field] and len(instance_data[field]) > 255:
                             instance_data[field] = instance_data[field][:255]
                     
-                    for field in ['tourism', 'wheelchair', 'landuse', 'wikidata']:
+                    for field in ['tourism', 'wheelchair', 'landuse', 'wikidata','amenity']:
                         if instance_data[field] and len(instance_data[field]) > 100:
                             instance_data[field] = instance_data[field][:100]
                     
@@ -258,4 +246,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
