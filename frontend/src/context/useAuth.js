@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { is_authenticated, login,register } from "../routes/endpoints/api";
+import { is_authenticated, login, register } from "../routes/endpoints/api";
 import { useNavigate } from "react-router-dom";
 
 const AuthContext = createContext();
@@ -20,17 +20,25 @@ export const AuthProvider = ({ children }) => {
 
     }
     const login_user = async (username, password) => {
-        const success = await login(username, password);
-        if (success) {
-            setIsAuthenticated(true)
-            nav('/')
+        try {
+            const success = await login(username, password);
+            if (success) {
+                setIsAuthenticated(true)
+                nav('/')
+            }
+        } catch (error) {
+            console.error('Login failed:', error);
+            setIsAuthenticated(false);
+            return false;
+
+
         }
     }
 
-    const register_user = async (username, email, password, confirm_password) => {
+    const register_user = async (firstName,lastName,username, email, password, confirm_password) => {
         try {
             if (password === confirm_password) {
-                await register(username, email, password)
+                await register(firstName,lastName,username, email, password)
                 alert('User successfully registered')
                 nav('/login')
             }
@@ -44,7 +52,7 @@ export const AuthProvider = ({ children }) => {
 
     }, [window.location.pathname])
     return (
-        <AuthContext.Provider value={{ isAuthenticated, loading, login_user,register_user }}>
+        <AuthContext.Provider value={{ isAuthenticated, loading, login_user, register_user }}>
             {children}
         </AuthContext.Provider>
     )

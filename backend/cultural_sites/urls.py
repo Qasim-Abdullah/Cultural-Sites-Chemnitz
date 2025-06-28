@@ -1,6 +1,6 @@
 
 from django.urls import path
-from .views import  CustomTokenObtainPairView,CustomTokenRefreshView,logout,is_authenticated,register,location_list,location,get_logged_in_user
+from .views import  CustomTokenObtainPairView,CustomTokenRefreshView,logout,is_authenticated,register,location_list,location,get_logged_in_user,delete_user
 urlpatterns = [
     
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
@@ -10,6 +10,7 @@ urlpatterns = [
     path('register/',register),
     path('location/', location_list, name='location'),
     path('locations/', location, name='locations'),
-    path('user-info/',get_logged_in_user,name='user_info')
+    path('user-info/',get_logged_in_user,name='user_info'),
+    path('delete/',delete_user,name='delete')
     
 ]

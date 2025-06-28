@@ -6,6 +6,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated,AllowAny
 from rest_framework.response import Response
 from django.db.models import Q
+from rest_framework import status
 # Create your views here.
 
 from rest_framework_simplejwt.views import (
@@ -81,10 +82,12 @@ def is_authenticated(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
+    print(request.data)
     serializer = UserRegisterSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)
+        
     print(serializer.errors)
     return Response(serializer.errors,status=400)
 
@@ -129,6 +132,13 @@ def location_list(request):
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
 
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_user(request):
+    user = request.user
+    user.delete()
+    return Response({"message": "User deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
