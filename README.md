@@ -1,8 +1,3 @@
-# Django + React 
-
-#python import_geojson.py "D:\TUC\Datenbanken und Web-Techniken\backend\Chemnitz.geojson" Location
-#command to updload data to Postgre
-
 # Django + React Location Map App
 
 This project is a full-stack web application built using **Django**, **React**, **Tailwind CSS**, and **PostgreSQL**. It displays geographic data (e.g., points of interest) on a map. Data is stored in a PostGIS-enabled PostgreSQL database and can be uploaded via a GeoJSON file.

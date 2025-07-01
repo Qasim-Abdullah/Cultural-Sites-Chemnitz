@@ -56,14 +56,25 @@ export default function Navbar() {
 
     return (
         <>
-            <nav className="bg-white shadow-lg border-b">
+            <nav className="shadow-lg border-b"
+                style={{
+                    background: `linear-gradient(
+      to bottom,
+      #000 0%,
+      #000 30%,
+      #DD0000 36%,
+      #DD0000 63%,
+      #FFCC00 69%,
+      #FFCC00 100%
+    )`,
+                }}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center h-16">
                         <div className="flex-shrink-0">
-                            <h1 className="text-xl font-bold text-gray-800">Your App</h1>
+                            <h1 className="text-xl font-bold text-gray-800 bg-white"></h1>
                         </div>
                         <div className="flex items-center space-x-4">
-                            <div className="relative">
+                            <div className="relative bg-white">
                                 <button
                                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                                     className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200"
