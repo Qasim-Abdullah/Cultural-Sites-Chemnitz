@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { fetch_MAP_Locations } from '../routes/endpoints/api';
 import { MapPin, Search, Utensils, Building2, Trees, Car, Map, Filter, X, Navigation } from 'lucide-react';
 import LeafletMap from './map';
+import { FavoriteButton, FavoritesFilter, useFavorites } from './favorites';
 
 const LocationMapApp = () => {
   const [locations, setLocations] = useState([]);
@@ -14,7 +15,15 @@ const LocationMapApp = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [error, setError] = useState(null);
   const [showingRoute, setShowingRoute] = useState(false);
-  
+  const {
+    favorites,
+    loading: favoritesLoading,
+    error: favoritesError,
+    toggleFavorite,
+    isFavorite,
+    getFavoriteLocations
+  } = useFavorites();
+
   // Add ref to access LeafletMap methods
   const mapRef = useRef(null);
 
@@ -186,7 +195,7 @@ const LocationMapApp = () => {
     { id: 'restaurant', label: 'Restaurants', icon: Utensils, color: 'bg-red-500' },
     { id: 'artwork', label: 'Artwork', icon: Building2, color: 'bg-blue-500' },
     { id: 'theatre', label: 'Theatre', icon: Trees, color: 'bg-green-500' },
-    { id: 'museum', label: 'Museum', icon: Car, color: 'bg-purple-500' }
+    { id: 'museum', label: 'Museum', icon: Car, color: 'bg-purple-500' },
   ];
 
   // Handle category filter
@@ -194,7 +203,16 @@ const LocationMapApp = () => {
     setSelectedCategory(categoryId);
     setShowingRoute(false);
     setSelectedLocation(null);
-    fetchLocations({ type: categoryId });
+    //fetchLocations({ type: categoryId });
+    if (categoryId === 'favorites') {
+      // Show only favorite locations
+      const favoriteLocations = getFavoriteLocations(locations);
+      setFilteredLocations(favoriteLocations);
+    } else {
+      // Fetch locations with category filter
+      fetchLocations({ type: categoryId });
+    }
+
   };
 
   // Handle search with debouncing
@@ -295,11 +313,11 @@ const LocationMapApp = () => {
   // Handle location click from results list - FIXED
   const handleLocationClick = (location) => {
     console.log('Location clicked from results list:', location.name);
-    
+
     // Set the selected location
     setSelectedLocation(location);
     setShowingRoute(true);
-    
+
     // Call the map's route function directly
     if (mapRef.current && mapRef.current.showRouteToLocation) {
       mapRef.current.showRouteToLocation(location);
@@ -310,7 +328,7 @@ const LocationMapApp = () => {
   const handleBackToAllLocations = () => {
     setShowingRoute(false);
     setSelectedLocation(null);
-    
+
     // Clear route in map
     if (mapRef.current && mapRef.current.clearRoute) {
       mapRef.current.clearRoute();
@@ -348,6 +366,7 @@ const LocationMapApp = () => {
         </div>
 
         {/* Category Filters */}
+
         <div className="p-4 border-b border-gray-200">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Categories</h3>
           <div className="space-y-2">
@@ -368,8 +387,16 @@ const LocationMapApp = () => {
                 </button>
               );
             })}
+
+            {/* ADD THE FAVORITES FILTER RIGHT HERE - after the categories.map() */}
+            <FavoritesFilter
+              selectedCategory={selectedCategory}
+              onCategoryFilter={handleCategoryFilter}
+              favoritesCount={favorites.length}
+            />
           </div>
         </div>
+
 
         {/* Route Status */}
         {showingRoute && selectedLocation && (
@@ -484,6 +511,19 @@ const LocationMapApp = () => {
                           <h4 className="text-sm font-medium text-gray-800 truncate">
                             {location.name || 'Unnamed Location'}
                           </h4>
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="text-sm font-medium text-gray-800 truncate flex-1">
+                              {location.name || 'Unnamed Location'}
+                            </h4>
+                            {/* ADD FAVORITE BUTTON HERE */}
+                            <FavoriteButton
+                              location={location}
+                              isFavorite={isFavorite(location.id)}
+                              onToggleFavorite={toggleFavorite}
+                              size="sm"
+                            />
+                          </div>
+
                           <p className="text-xs text-gray-600 mt-1">
                             {address}
                           </p>

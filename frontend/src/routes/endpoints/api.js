@@ -10,6 +10,9 @@ const REGISTER_URL = `${BASE_URL}register/`
 const MAP_LOCATION_URL = `${BASE_URL}locations/`
 const USER_INFO_URL = `${BASE_URL}user-info/`
 const DELETE_USER_URL = `${BASE_URL}delete/`
+const ADD_FAVORITES_URL = `${BASE_URL}add/`
+const REMOVE_FAVORITES_URL = `${BASE_URL}remove/`
+const LIST_FAVORITES_URL = `${BASE_URL}list/`
 
 export const login = async (username, password) => {
     const response = await axios.post(LOGIN_URL,
@@ -160,5 +163,42 @@ export const fetch_MAP_Locations = async (filters = {}) => {
             const url = params.toString() ? `${MAP_LOCATION_URL}?${params.toString()}` : MAP_LOCATION_URL;
             return axios.get(url, { withCredentials: true, timeout: 10000 });
         });
+    }
+};
+
+export const addToFavorites = async (locationId) => {
+    try {
+        const response = await axios.post(ADD_FAVORITES_URL, 
+            { location_id: locationId },
+            { withCredentials: true }
+        );
+        return response.data;
+    } catch (error) {
+        console.error("Failed to add to favorites:", error);
+        throw error; // Re-throw to let component handle the error
+    }
+};
+
+export const removeFromFavorites = async (locationId) => {
+    try {
+        const response = await axios.delete(`${REMOVE_FAVORITES_URL}${locationId}/`, {
+            withCredentials: true
+        });
+        return response.data;
+    } catch (error) {
+        console.error("Failed to remove from favorites:", error);
+        throw error; // Re-throw to let component handle the error
+    }
+};
+
+export const listFavorites = async () => {
+    try {
+        const response = await axios.get(LIST_FAVORITES_URL, {
+            withCredentials: true
+        });
+        return response.data;
+    } catch (error) {
+        console.error("Failed to fetch favorites:", error);
+        return null;
     }
 };

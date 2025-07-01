@@ -47,7 +47,13 @@ const Login = () => {
                 opacity={0.5}  // adjust opacity for fade strength
                 zIndex={0}
             />
-            <VStack position="relative" zIndex={1}>
+            <VStack position="relative" zIndex={1} bg="white"          // <-- White background here
+                p={8}               // <-- Padding inside the container
+                borderRadius="md"   // <-- Rounded corners for better look
+                boxShadow="md"      // <-- Subtle shadow
+                spacing={4}         // <-- Space between form elements
+                width="100%"
+                maxW="400px">
                 <FormControl>
                     <FormLabel>USERNAME</FormLabel>
                     <Input onChange={(e) => setUsername(e.target.value)} value={username} type='text' />

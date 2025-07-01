@@ -42,7 +42,13 @@ const Register = () => {
             />
 
 
-            <VStack>
+            <VStack position="relative" zIndex={1} bg="white"          // <-- White background here
+                p={8}               // <-- Padding inside the container
+                borderRadius="md"   // <-- Rounded corners for better look
+                boxShadow="md"      // <-- Subtle shadow
+                spacing={4}         // <-- Space between form elements
+                width="100%"
+                maxW="400px">
                 <FormControl>
                     <FormLabel>First Name</FormLabel>
                     <Input onChange={(e) => setfirstName(e.target.value)} value={firstName} type='text' />

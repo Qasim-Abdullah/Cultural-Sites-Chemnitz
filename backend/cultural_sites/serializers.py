@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import  Location
+from .models import  Location,Favorite
 from django.contrib.auth.models import User
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
 
@@ -27,3 +27,9 @@ class LocationSerializer(GeoFeatureModelSerializer):
         model = Location
         geo_field = "geometry"  # required for GeoJSON output
         fields = "__all__"
+
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Favorite
+        fields = ['id', 'location', 'added_at']

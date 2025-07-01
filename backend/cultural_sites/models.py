@@ -17,5 +17,16 @@ class Location(models.Model):
 
     def __str__(self):
         return self.name or self.osm_id
+    
+class Favorite(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    location = models.ForeignKey('Location', on_delete=models.CASCADE)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'location')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.location}"
 
 

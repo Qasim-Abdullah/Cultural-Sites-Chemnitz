@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from django.contrib.auth.models import User
-from .models import Location
+from .models import Location,Favorite
 from .serializers import UserRegisterSerializer,LocationSerializer
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated,AllowAny
@@ -201,3 +201,44 @@ def location(request):
             serializer.save()
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
+    
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def add_to_favorites(request):
+    location_id = request.data.get('location_id')
+    try:
+        location = Location.objects.get(id=location_id)
+        favorite, created = Favorite.objects.get_or_create(user=request.user, location=location)
+        if not created:
+            return Response({'message': 'Already in favorites'}, status=200)
+        return Response({'message': 'Added to favorites'}, status=201)
+    except Location.DoesNotExist:
+        return Response({'error': 'Location not found'}, status=404)
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def remove_from_favorites(request, location_id):
+    try:
+        location = Location.objects.get(id=location_id)
+        fav = Favorite.objects.get(user=request.user, location=location)
+        fav.delete()
+        return Response({'message': 'Removed from favorites'})
+    except Location.DoesNotExist:
+        return Response({'error': 'Location not found'}, status=404)
+    except Favorite.DoesNotExist:
+        return Response({'error': 'Favorite not found'}, status=404)
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_favorites(request):
+    favorites = Favorite.objects.filter(user=request.user).select_related('location')
+    data = [
+        {
+            'id': fav.location.id,
+            'name': fav.location.name,
+            'osm_id': fav.location.osm_id,
+        }
+        for fav in favorites
+    ]
+    return Response(data)
