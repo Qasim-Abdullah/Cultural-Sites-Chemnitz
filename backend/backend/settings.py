@@ -40,8 +40,17 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-x@cz#$ef=$_^)1uz0jv+t
 # DEBUG should be False in production
 DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 
-# Allow all hosts in production, but you should restrict this for security
-ALLOWED_HOSTS = ['*'] if not DEBUG else []
+# UPDATED: More secure ALLOWED_HOSTS configuration
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '.onrender.com',  # Allow all Render subdomains
+    '.render.com',    # Alternative Render domain
+]
+
+# If DEBUG is True (development), allow all hosts
+if DEBUG:
+    ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
@@ -71,12 +80,19 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# CORS configuration - update for production
+# UPDATED: CORS configuration with production considerations
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "https://localhost:3000",
     # Add your production frontend URL here when you deploy it
     # "https://your-frontend-domain.com",
 ]
+
+# UPDATED: Allow all origins in development for easier testing
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOW_ALL_ORIGINS = False
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -108,10 +124,20 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
-# Database configuration
-# First try to use individual environment variables (for Render)
-# If not available, fall back to DATABASE_URL
-if all(key in os.environ for key in ['DATABASE_NAME', 'DATABASE_USER', 'DATABASE_PASSWORD', 'DATABASE_HOST']):
+# UPDATED: Database configuration with better PostGIS support
+# First try to use DATABASE_URL (Render's preferred method)
+if 'DATABASE_URL' in os.environ:
+    DATABASES = {
+        'default': dj_database_url.parse(
+            os.environ.get('DATABASE_URL'),
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+    # Force PostGIS engine
+    DATABASES['default']['ENGINE'] = 'django.contrib.gis.db.backends.postgis'
+elif all(key in os.environ for key in ['DATABASE_NAME', 'DATABASE_USER', 'DATABASE_PASSWORD', 'DATABASE_HOST']):
+    # Individual environment variables (backup method)
     DATABASES = {
         'default': {
             'ENGINE': 'django.contrib.gis.db.backends.postgis',
@@ -123,13 +149,16 @@ if all(key in os.environ for key in ['DATABASE_NAME', 'DATABASE_USER', 'DATABASE
         }
     }
 else:
-    # Fallback to DATABASE_URL (for local development or other deployments)
+    # Local development fallback
     DATABASES = {
-        'default': dj_database_url.config(
-            default='postgresql://localhost/cultural_sites_db',
-            conn_max_age=600,
-            ssl_require=not DEBUG
-        )
+        'default': {
+            'ENGINE': 'django.contrib.gis.db.backends.postgis',
+            'NAME': 'postgres',
+            'USER': 'postgres',
+            'PASSWORD': '0909',
+            'HOST': 'localhost',
+            'PORT': '5432',
+        }
     }
 
 # Password validation
@@ -158,9 +187,48 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
+# UPDATED: Better static files configuration
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+] if os.path.exists(os.path.join(BASE_DIR, 'static')) else []
+
 # Static files storage configuration for production
 if not DEBUG:
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# ADDED: Security settings for production
+if not DEBUG:
+    # Security settings for production
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    X_FRAME_OPTIONS = 'DENY'
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ADDED: Logging configuration for better debugging in production
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}

@@ -1,14 +1,28 @@
-asgiref==3.8.1
+# Core Django packages
 Django==5.2.1
-django-cors-headers==4.7.0
-djangorestframework==3.16.0
-djangorestframework_simplejwt==5.5.0
-PyJWT==2.9.0
+asgiref==3.8.1
 sqlparse==0.5.3
 tzdata==2025.2
-djangorestframework-gis
-psycopg2-binary
-gunicorn
-whitenoise
-dj-database-url
-django-environ
+
+# Django REST Framework
+djangorestframework==3.16.0
+djangorestframework-simplejwt==5.5.0
+djangorestframework-gis==1.0
+
+# Authentication & Security
+PyJWT==2.9.0
+django-cors-headers==4.7.0
+
+# Database & PostGIS
+psycopg2-binary==2.9.9
+dj-database-url==2.3.0
+
+# Production server & static files
+gunicorn==23.0.0
+whitenoise==6.8.2
+
+# Environment management
+django-environ==0.11.2
+
+# PostGIS/GDAL dependencies (automatically handled by Render for PostGIS)
+# GDAL, GEOS, and PROJ are provided by the system on Render
