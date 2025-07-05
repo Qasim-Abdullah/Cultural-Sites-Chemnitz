@@ -6,3 +6,5 @@ djangorestframework_simplejwt==5.5.0
 PyJWT==2.9.0
 sqlparse==0.5.3
 tzdata==2025.2
+djangorestframework-gis
+psycopg2-binary
