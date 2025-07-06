@@ -44,7 +44,7 @@ DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    '.onrender.com',  # Allow all Render subdomains
+    'cultural-sites-chemnitz.onrender.com',  # Allow all Render subdomains
     '.render.com',    # Alternative Render domain
 ]
 
@@ -83,9 +83,8 @@ MIDDLEWARE = [
 # UPDATED: CORS configuration with production considerations
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "https://localhost:3000",
     # Add your production frontend URL here when you deploy it
-    # "https://your-frontend-domain.com",
+    "https://cultural-sites-chemnitz-1.onrender.com",
 ]
 
 # UPDATED: Allow all origins in development for easier testing
