@@ -4,53 +4,45 @@ Django settings for backend project.
 
 import os
 from pathlib import Path
-import dj_database_url
+
+import os
+from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# GDAL/GeoDjango Configuration for local development only
-# This section will be skipped in production (Render)
-if os.name == 'nt':  # Windows only
-    osgeo_bin = r'C:\OSGeo4W\bin'
+# GDAL/GeoDjango Configuration
+# Fixed: Use correct OSGeo4W path (32-bit version, not OSGeo4W64)
+osgeo_bin = r'C:\OSGeo4W\bin'
 
-    # Add DLL directory for Python 3.8+ (required for Windows)
-    if Path(osgeo_bin).exists():
-        os.add_dll_directory(osgeo_bin)
-        
-        # Set GDAL library paths (using gdal311.dll - the newer version available)
-        GDAL_LIBRARY_PATH = os.path.join(osgeo_bin, 'gdal311.dll')
-        GEOS_LIBRARY_PATH = os.path.join(osgeo_bin, 'geos_c.dll')
-        
-        # Set required environment variables for GDAL
-        osgeo_root = r'C:\OSGeo4W'
-        os.environ['GDAL_DATA'] = os.path.join(osgeo_root, 'share', 'gdal')
-        os.environ['PROJ_LIB'] = os.path.join(osgeo_root, 'share', 'proj')
-        os.environ['PATH'] = osgeo_bin + ';' + os.environ.get('PATH', '')
-        
-        print(f"✅ Using GDAL from: {GDAL_LIBRARY_PATH}")
-    else:
-        print("❌ OSGeo4W not found at expected location")
-        print("Make sure OSGeo4W is installed at C:\\OSGeo4W")
+# Add DLL directory for Python 3.8+ (required for Windows)
+if Path(osgeo_bin).exists():
+    os.add_dll_directory(osgeo_bin)
+    
+    # Set GDAL library paths (using gdal311.dll - the newer version available)
+    GDAL_LIBRARY_PATH = os.path.join(osgeo_bin, 'gdal311.dll')
+    GEOS_LIBRARY_PATH = os.path.join(osgeo_bin, 'geos_c.dll')
+    
+    # Set required environment variables for GDAL
+    osgeo_root = r'C:\OSGeo4W'
+    os.environ['GDAL_DATA'] = os.path.join(osgeo_root, 'share', 'gdal')
+    os.environ['PROJ_LIB'] = os.path.join(osgeo_root, 'share', 'proj')
+    os.environ['PATH'] = osgeo_bin + ';' + os.environ.get('PATH', '')
+    
+    print(f"✅ Using GDAL from: {GDAL_LIBRARY_PATH}")
+else:
+    print("❌ OSGeo4W not found at expected location")
+    print("Make sure OSGeo4W is installed at C:\\OSGeo4W")
+# Quick-start development settings - unsuitable for production
+# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# Environment variables configuration
-# Use environment variables for production settings
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-x@cz#$ef=$_^)1uz0jv+tyb^xpexun9115m=vpdxt1gt11ah&l')
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = 'django-insecure-x@cz#$ef=$_^)1uz0jv+tyb^xpexun9115m=vpdxt1gt11ah&l'
 
-# DEBUG should be False in production
-DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = True
 
-# UPDATED: More secure ALLOWED_HOSTS configuration
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    'cultural-sites-chemnitz.onrender.com',  # Allow all Render subdomains
-    '.render.com',    # Alternative Render domain
-]
-
-# If DEBUG is True (development), allow all hosts
-if DEBUG:
-    ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = []
 
 # Application definition
 INSTALLED_APPS = [
@@ -70,7 +62,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Added for static files in production
     "corsheaders.middleware.CorsMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -80,30 +71,11 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# UPDATED: CORS configuration with production considerations
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    # Add your production frontend URL here when you deploy it
-    "https://cultural-sites-chemnitz-1.onrender.com",
 ]
-
-# UPDATED: Allow all origins in development for easier testing
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
-else:
-    CORS_ALLOW_ALL_ORIGINS = False
 
 CORS_ALLOW_CREDENTIALS = True
-CSRF_TRUSTED_ORIGINS = [
-    "https://cultural-sites-chemnitz-1.onrender.com",
-]
-
-
-SESSION_COOKIE_SAMESITE = "None"
-SESSION_COOKIE_SECURE = True
-
-CSRF_COOKIE_SAMESITE = "None"
-CSRF_COOKIE_SECURE = True
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -133,44 +105,21 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
-# UPDATED: Database configuration with better PostGIS support
-# First try to use DATABASE_URL (Render's preferred method)
-if 'DATABASE_URL' in os.environ:
-    DATABASES = {
-        'default': dj_database_url.parse(
-            os.environ.get('DATABASE_URL'),
-            conn_max_age=600,
-            conn_health_checks=True,
-        )
+# Database
+# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
+        'NAME': 'postgres',
+        'USER': 'postgres',
+        'PASSWORD': '0909',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
-    # Force PostGIS engine
-    DATABASES['default']['ENGINE'] = 'django.contrib.gis.db.backends.postgis'
-elif all(key in os.environ for key in ['DATABASE_NAME', 'DATABASE_USER', 'DATABASE_PASSWORD', 'DATABASE_HOST']):
-    # Individual environment variables (backup method)
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.contrib.gis.db.backends.postgis',
-            'NAME': os.environ.get('DATABASE_NAME'),
-            'USER': os.environ.get('DATABASE_USER'),
-            'PASSWORD': os.environ.get('DATABASE_PASSWORD'),
-            'HOST': os.environ.get('DATABASE_HOST'),
-            'PORT': os.environ.get('DATABASE_PORT', '5432'),
-        }
-    }
-else:
-    # Local development fallback
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.contrib.gis.db.backends.postgis',
-            'NAME': 'postgres',
-            'USER': 'postgres',
-            'PASSWORD': '0909',
-            'HOST': 'localhost',
-            'PORT': '5432',
-        }
-    }
+}
 
 # Password validation
+# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -187,57 +136,16 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Internationalization
+# https://docs.djangoproject.com/en/5.2/topics/i18n/
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# Static files configuration for production
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
-# UPDATED: Better static files configuration
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
-] if os.path.exists(os.path.join(BASE_DIR, 'static')) else []
-
-# Static files storage configuration for production
-if not DEBUG:
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
-# ADDED: Security settings for production
-if not DEBUG:
-    # Security settings for production
-    SECURE_SSL_REDIRECT = True
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_HSTS_SECONDS = 31536000
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_BROWSER_XSS_FILTER = True
-    X_FRAME_OPTIONS = 'DENY'
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.2/howto/static-files/
+STATIC_URL = 'static/'
 
 # Default primary key field type
+# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# ADDED: Logging configuration for better debugging in production
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-    },
-}

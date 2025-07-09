@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const BASE_URL = 'https://cultural-sites-chemnitz.onrender.com/'
+const BASE_URL = 'http://127.0.0.1:8000/'
 
 const LOGIN_URL = `${BASE_URL}token/`
 const REFRESH_URL = `${BASE_URL}token/refresh/`
